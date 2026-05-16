@@ -74,7 +74,10 @@ def get_artwork(title, artist):
     return None
 
 
-FIREBASE_URL = 'https://now-playing-75593-default-rtdb.europe-west1.firebasedatabase.app/now-playing.json'
+FIREBASE_BASE = 'https://now-playing-75593-default-rtdb.europe-west1.firebasedatabase.app'
+_secret_path  = os.path.expanduser('~/Library/Application Support/djermn/firebase_secret.txt')
+_secret       = open(_secret_path).read().strip() if os.path.exists(_secret_path) else ''
+FIREBASE_URL  = f'{FIREBASE_BASE}/now-playing.json?auth={_secret}'
 
 
 def push_to_firebase(data):
