@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0c0c0c">
+  <title>Now Playing — DJERMN</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #09090b;
+      color: #f4f4f5;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #bg {
+      position: fixed;
+      inset: -30%;
+      background-size: cover;
+      background-position: center;
+      filter: blur(60px) brightness(0.25) saturate(1.8);
+      transition: background-image 1s ease;
+      z-index: 0;
+    }
+
+    #app {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 380px;
+      transition: opacity 0.3s;
+    }
+    #app.fading { opacity: 0; }
+
+    .art-wrap {
+      width: min(260px, 75vw);
+      height: min(260px, 75vw);
+      border-radius: 20px;
+      overflow: hidden;
+      background: #18181b;
+      box-shadow: 0 40px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06);
+      margin-bottom: 36px;
+      flex-shrink: 0;
+    }
+    .art-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .art-placeholder {
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .art-placeholder svg { width: 56px; height: 56px; opacity: 0.15; }
+
+    .title {
+      font-size: clamp(1.15rem, 5.5vw, 1.6rem);
+      font-weight: 800;
+      text-align: center;
+      letter-spacing: -0.3px;
+      line-height: 1.25;
+      margin-bottom: 10px;
+      text-shadow: 0 2px 12px rgba(0,0,0,0.5);
+    }
+    .artist {
+      font-size: clamp(0.85rem, 3.5vw, 1rem);
+      font-weight: 500;
+      color: #a1a1aa;
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .badges { display: flex; gap: 6px; justify-content: center; margin-bottom: 36px; }
+    .badge { font-size: 0.6rem; font-weight: 700; padding: 3px 10px; border-radius: 4px; letter-spacing: 0.2px; }
+    .badge-bpm { background: #451a03; color: #fbbf24; box-shadow: inset 0 0 0 1px rgba(120,53,15,0.5); }
+    .badge-key { background: #022c22; color: #34d399; box-shadow: inset 0 0 0 1px rgba(6,78,59,0.5); }
+
+    .live { display: flex; align-items: center; gap: 7px; font-size: 0.6rem; font-weight: 700; color: #52525b; letter-spacing: 0.18em; text-transform: uppercase; }
+    .live-dot { width: 6px; height: 6px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 6px #ef4444; animation: blink 2s ease-in-out infinite; }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+    .idle { text-align: center; color: #52525b; }
+    .idle svg { width: 48px; height: 48px; margin-bottom: 20px; opacity: 0.2; }
+    .idle h2 { font-size: 1rem; font-weight: 600; margin-bottom: 6px; color: #71717a; }
+    .idle p { font-size: 0.8rem; color: #52525b; }
+
+    /* Note */
+    .note-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 20px; }
+    .note-hint { font-size: 0.58rem; color: rgba(255,255,255,0.22); letter-spacing: 0.04em; text-align: center; }
+    .note-icon { font-size: 2.4rem; animation: pulse-note 1.1s ease-in-out infinite; display: block; line-height: 1; }
+    @keyframes pulse-note {
+      0%, 100% { transform: scale(1);    opacity: 0.55; }
+      50%       { transform: scale(1.28); opacity: 1;    }
+    }
+
+    /* Refresh button */
+    #refresh-btn {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: rgba(255,255,255,0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      transition: background 0.15s, color 0.15s, transform 0.15s;
+      z-index: 10;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #refresh-btn:active { background: rgba(255,255,255,0.16); color: rgba(255,255,255,0.8); transform: scale(0.92); }
+    #refresh-btn svg { transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    #refresh-btn.spinning svg { transform: rotate(360deg); }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-72px);
+      transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+      background: rgba(255,255,255,0.1);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.14);
+      color: rgba(255,255,255,0.75);
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 7px 18px;
+      border-radius: 999px;
+      white-space: nowrap;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+    #toast-dot { width: 5px; height: 5px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 6px #4ade80; animation: blink 1s ease-in-out infinite; }
+
+    /* Artwork drop-in */
+    @keyframes art-drop {
+      0%   { transform: scale(0.86) rotate(-4deg); opacity: 0; }
+      100% { transform: scale(1)    rotate(0deg);  opacity: 1; }
+    }
+    .art-wrap.drop-in { animation: art-drop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+
+    /* Shimmer skeleton */
+    @keyframes shimmer {
+      0%   { background-position: -200% 0; }
+      100% { background-position:  200% 0; }
+    }
+    .art-shimmer {
+      width: 100%; height: 100%;
+      background: linear-gradient(90deg, #18181b 25%, #27272a 50%, #18181b 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s ease-in-out infinite;
+    }
+
+    /* Mood */
+    .mood-section { margin-top: 24px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .mood-emojis { display: flex; gap: 2px; }
+    .mood-btn {
+      font-size: 1.5rem; line-height: 1;
+      background: none; border: none; cursor: pointer;
+      padding: 8px 7px; border-radius: 12px;
+      opacity: 0.28; transition: opacity 0.15s, transform 0.15s, background 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .mood-btn:active { transform: scale(0.86); }
+    .mood-btn.mood-selected { opacity: 1; background: rgba(255,255,255,0.09); }
+    .mood-avg { font-size: 0.6rem; font-weight: 700; color: #52525b; letter-spacing: 0.1em; text-transform: uppercase; }
+    .mood-avg span { color: #71717a; }
+  </style>
+</head>
+<body>
+<div id="bg"></div>
+<div id="toast"><span id="toast-dot"></span>Neuer Track</div>
+<button id="refresh-btn" aria-label="Aktualisieren">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
+    <path d="M21 3v5h-5"/>
+  </svg>
+</button>
+<div id="app">
+  <div class="idle">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zm12 0a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
+    </svg>
+    <h2>Verbinde...</h2>
+    <p>Warte auf Rekordbox</p>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getDatabase, ref, onValue, get, set } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+
+  const app = initializeApp({
+    apiKey: 'AIzaSyDB7qRbmUTU25sv4R8Db4SWjyc2FGaPQeE',
+    authDomain: 'now-playing-75593.firebaseapp.com',
+    projectId: 'now-playing-75593',
+    storageBucket: 'now-playing-75593.firebasestorage.app',
+    messagingSenderId: '407700694205',
+    appId: '1:407700694205:web:d402761f32892fee5cc3d4',
+    databaseURL: 'https://now-playing-75593-default-rtdb.europe-west1.firebasedatabase.app',
+  });
+
+  const db         = getDatabase(app);
+  const bg         = document.getElementById('bg');
+  const appEl      = document.getElementById('app');
+  const toast      = document.getElementById('toast');
+  const refreshBtn = document.getElementById('refresh-btn');
+  let lastTitle   = null;
+  let lastArtwork = null;
+  let toastTimer  = null;
+  let reloadTimer = setTimeout(() => location.reload(), 45000);
+
+  const uid = (() => {
+    let id = localStorage.getItem('djermn-uid');
+    if (!id) { id = crypto.randomUUID(); localStorage.setItem('djermn-uid', id); }
+    return id;
+  })();
+  let moodUnsub = null;
+
+  function moodKey(title) {
+    return title.replace(/[.#$[\]/]/g, '_').substring(0, 100);
+  }
+
+  function avgEmoji(avg) {
+    if (avg >= 4.5) return '🔥';
+    if (avg >= 3.5) return '😍';
+    if (avg >= 2.5) return '🙂';
+    if (avg >= 1.5) return '😐';
+    return '😴';
+  }
+
+  function renderMood(title) {
+    if (moodUnsub) { moodUnsub(); moodUnsub = null; }
+    const key = moodKey(title);
+    moodUnsub = onValue(ref(db, `mood/${key}`), (snap) => {
+      const el = document.getElementById('mood-section');
+      if (!el) return;
+      const votes = snap.val() || {};
+      const vals  = Object.values(votes).filter(v => typeof v === 'number');
+      const avg   = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+      const myVote = votes[uid] ?? null;
+      const emojis = [['🔥',5],['😍',4],['🙂',3],['😐',2],['😴',1]];
+      el.innerHTML = `
+        <div class="mood-emojis">
+          ${emojis.map(([e,v]) => `<button class="mood-btn${myVote===v?' mood-selected':''}" data-val="${v}" data-key="${key}">${e}</button>`).join('')}
+        </div>
+        <div class="mood-avg">${avg !== null
+          ? `${avgEmoji(avg)} <span>Ø ${avg.toFixed(1)} · ${vals.length} Vote${vals.length!==1?'s':''}</span>`
+          : 'Stimmung bewerten'}</div>`;
+      el.querySelectorAll('.mood-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          set(ref(db, `mood/${btn.dataset.key}/${uid}`), parseInt(btn.dataset.val)).catch(() => {});
+        });
+      });
+    });
+  }
+
+  const NOTE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:56px;height:56px;opacity:0.15">
+    <path d="M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zm12 0a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
+  </svg>`;
+
+  const DANCER = `<div class="note-wrap">
+    <span class="note-icon">♪</span>
+    <p class="note-hint">Neuer Song sichtbar in ~45 Sekunden</p>
+  </div>`;
+
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function showToast() {
+    clearTimeout(toastTimer);
+    toast.classList.add('show');
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 2800);
+  }
+
+  function dropIn() {
+    const wrap = appEl.querySelector('.art-wrap');
+    if (!wrap) return;
+    wrap.classList.remove('drop-in');
+    void wrap.offsetWidth; // reflow
+    wrap.classList.add('drop-in');
+    wrap.addEventListener('animationend', () => wrap.classList.remove('drop-in'), { once: true });
+  }
+
+  function render(data) {
+    if (!data || !data.title) {
+      if (moodUnsub) { moodUnsub(); moodUnsub = null; }
+      bg.style.backgroundImage = '';
+      appEl.innerHTML = `<div class="idle">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zm12 0a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
+        </svg>
+        <h2>Warte auf ersten Song...</h2>
+        <p>DJERMN startet gleich</p>
+      </div>`;
+      return;
+    }
+
+    if (data.artwork) bg.style.backgroundImage = `url('${data.artwork}')`;
+
+    const art = data.artwork
+      ? `<img src="${esc(data.artwork)}" alt="Cover">`
+      : `<div class="art-shimmer"></div>`;
+
+    const bpm = data.bpm ? `<span class="badge badge-bpm">${data.bpm} BPM</span>` : '';
+    const key = data.key ? `<span class="badge badge-key">${esc(data.key)}</span>` : '';
+
+    appEl.innerHTML = `
+      ${DANCER}
+      <div class="art-wrap">${art}</div>
+      <div class="title">${esc(data.title)}</div>
+      <div class="artist">${esc(data.artist || '')}</div>
+      ${(bpm || key) ? `<div class="badges">${bpm}${key}</div>` : ''}
+      <div class="live"><span class="live-dot"></span>Live</div>
+      <div id="mood-section" class="mood-section"></div>`;
+
+    requestAnimationFrame(dropIn);
+    renderMood(data.title);
+  }
+
+  function swapArtwork(url) {
+    const wrap = appEl.querySelector('.art-wrap');
+    if (!wrap) return;
+    bg.style.backgroundImage = `url('${url}')`;
+    const img = document.createElement('img');
+    img.alt = 'Cover';
+    img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity 0.6s';
+    img.onload = () => { img.style.opacity = '1'; };
+    img.src = url;
+    wrap.innerHTML = '';
+    wrap.appendChild(img);
+  }
+
+  refreshBtn.addEventListener('click', async () => {
+    refreshBtn.classList.add('spinning');
+    refreshBtn.addEventListener('transitionend', () => refreshBtn.classList.remove('spinning'), { once: true });
+    try {
+      const snapshot = await get(ref(db, 'now-playing'));
+      const data = snapshot.val() || {};
+      lastTitle = null;
+      lastArtwork = null;
+      appEl.classList.add('fading');
+      setTimeout(() => {
+        lastTitle   = data.title;
+        lastArtwork = data.artwork;
+        render(data);
+        appEl.classList.remove('fading');
+      }, 300);
+    } catch (_) {}
+  });
+
+  onValue(ref(db, 'now-playing'), (snapshot) => {
+    clearTimeout(reloadTimer);
+    reloadTimer = setTimeout(() => location.reload(), 45000);
+
+    const data = snapshot.val() || {};
+    const titleChanged   = data.title !== lastTitle;
+    const artworkArrived = !lastArtwork && data.artwork && data.title === lastTitle;
+
+    if (titleChanged) {
+      appEl.classList.add('fading');
+      setTimeout(() => {
+        lastTitle   = data.title;
+        lastArtwork = data.artwork;
+        render(data);
+        appEl.classList.remove('fading');
+        if (data.title) showToast();
+      }, 300);
+    } else if (artworkArrived) {
+      lastArtwork = data.artwork;
+      swapArtwork(data.artwork);
+    }
+  });
+</script>
+</body>
+</html>
